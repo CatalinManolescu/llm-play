@@ -1,0 +1,31 @@
+#!/usr/sbin/env bash
+
+# Set default size to 8 GB if no parameter provided
+SIZE=${1:-8}
+
+# Validate size parameter (must be a positive integer)
+if ! [[ "$SIZE" =~ ^[0-9]+$ ]] || [ "$SIZE" -le 0 ]; then
+    echo "Error: Size must be a positive integer (GB)"
+    echo "Usage: $0 [size_in_gb]"
+    echo "Example: $0 16  # Creates 16GB swap file"
+    echo "Default: 8GB if no size specified"
+    exit 1
+fi
+
+echo "Resizing swap file to ${SIZE}GB"
+
+sudo swapoff /swap.img
+
+# Resize swap file to specified size in GiB
+sudo dd if=/dev/zero of=/swap.img bs=1G count=$SIZE status=progress
+
+# Set permissions (re-do just in case)
+sudo chmod 600 /swap.img
+
+# Format as swap again
+sudo mkswap /swap.img
+
+# Enable swap
+sudo swapon /swap.img
+
+swapon --show

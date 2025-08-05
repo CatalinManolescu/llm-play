@@ -1,0 +1,8 @@
+version: "2"
+tunnels:
+  web:
+    addr: open-webui:8080
+    proto: http
+    inspect: false
+    schemes: ["https"]
+    host_header: localhost
