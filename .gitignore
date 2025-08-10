@@ -44,4 +44,7 @@ Thumbs.db
 *~
 
 # local
+shaderc/
 llama.cpp/
+llama_cpp_rl/
+models/

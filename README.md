@@ -71,6 +71,86 @@ ollama pull deepseek-coder:latest
 # Models are stored in: /usr/share/ollama/.ollama/models
 ```
 
+## llama.cpp Setup
+
+### Installation
+
+```shell
+sudo apt update
+sudo apt install build-essential cmake ninja-build git wget ccache libcurl4-openssl-dev ninja-build libopenblas-dev libvulkan-dev vulkan-tools spirv-tools
+
+# add vulkan-sdk
+wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
+sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-noble.list http://packages.lunarg.com/vulkan/lunarg-vulkan-noble.list
+sudo apt update
+sudo apt install vulkan-sdk
+
+# Clone llama.cpp repository
+git clone https://github.com/ggerganov/llama.cpp.git
+cd llama.cpp
+
+# define path to install binaries
+export LLAMA_CPP_HOME=$(realpath $PWD/../llama_cpp_rl)
+mkdir -p "$LLAMA_CPP_HOME"
+
+# Configure
+# use -DLLAMA_CUDA=ON for NVIDIA GPUs and -DGGML_CLBLAST=ON for AMD
+# -DLLAMA_VULKAN=ON for Vulkan support
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$LLAMA_CPP_HOME" -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_BUILD_SERVER=ON -DGGML_CLBLAST=ON -DGGML_VULKAN=ON
+
+cmake --build build --config Release -j $(nproc)
+cmake --install build --config Release
+
+export PATH=${LLAMA_CPP_HOME}/bin:$PATH
+export LD_LIBRARY_PATH="$LLAMA_CPP_HOME/lib:$LD_LIBRARY_PATH"
+# persist
+# echo "$LLAMA_CPP_HOME/lib" | sudo tee /etc/ld.so.conf.d/llama_cpp.conf
+# sudo ldconfig
+
+llama-cli --list-devices
+```
+
+### Basic Usage
+
+```shell
+mkdir -p $LLM_MODELS_LOCATION/gpt-oss
+cd $LLM_MODELS_LOCATION/gpt-oss
+```
+
+#### Run Model
+
+```shell
+# https://huggingface.co/unsloth/gpt-oss-20b-GGUF/tree/main
+hf download unsloth/gpt-oss-20b-GGUF --include "gpt-oss-20b-Q5_K_M.gguf" --local-dir "$LLM_MODELS_LOCATION/gpt-oss"
+
+# --no-display-prompt                     don't print prompt at generation (default: false)
+# -co,   --color                          colorise output to distinguish prompt and user input from generations
+# --template "{{ .Prompt }}"
+llama-cli -m gpt-oss-20b-Q5_K_M.gguf --gpu-layers 12 -p "Test"
+```
+
+#### Benchmarck
+
+```shell
+> llama-bench --flash-attn 1 --model ./gpt-oss-20b-Q5_K_M.gguf -pg 1024,256
+ggml_vulkan: Found 1 Vulkan devices:
+ggml_vulkan: 0 = AMD Radeon Graphics (RADV GFX1150) (radv) | uma: 1 | fp16: 1 | bf16: 0 | warp size: 64 | shared memory: 65536 | int dot: 1 | matrix cores: KHR_coopmat
+| model                          |       size |     params | backend    | ngl | fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -: | --------------: | -------------------: |
+| gpt-oss ?B Q5_K - Medium       |  10.90 GiB |    20.91 B | Vulkan     |  99 |  1 |           pp512 |        249.19 ± 1.42 |
+| gpt-oss ?B Q5_K - Medium       |  10.90 GiB |    20.91 B | Vulkan     |  99 |  1 |           tg128 |         29.95 ± 0.06 |
+| gpt-oss ?B Q5_K - Medium       |  10.90 GiB |    20.91 B | Vulkan     |  99 |  1 |    pp1024+tg256 |         98.56 ± 0.14 |
+
+> llama-bench --flash-attn 1 --model ./gpt-oss-20b-F16.gguf -pg 1024,256
+ggml_vulkan: Found 1 Vulkan devices:
+ggml_vulkan: 0 = AMD Radeon Graphics (RADV GFX1150) (radv) | uma: 1 | fp16: 1 | bf16: 0 | warp size: 64 | shared memory: 65536 | int dot: 1 | matrix cores: KHR_coopmat
+| model                          |       size |     params | backend    | ngl | fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -: | --------------: | -------------------: |
+| gpt-oss ?B F16                 |  12.83 GiB |    20.91 B | Vulkan     |  99 |  1 |           pp512 |        240.03 ± 2.56 |
+| gpt-oss ?B F16                 |  12.83 GiB |    20.91 B | Vulkan     |  99 |  1 |           tg128 |         21.08 ± 0.05 |
+| gpt-oss ?B F16                 |  12.83 GiB |    20.91 B | Vulkan     |  99 |  1 |    pp1024+tg256 |         76.14 ± 0.15 |
+```
+
 ## System Requirements
 
 ### Memory Management
@@ -96,4 +176,6 @@ sudo swapon /swap.img
 
 - [Ollama Documentation](https://github.com/ollama/ollama)
 - [Ollama Configuration FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.md)
+- [llama.cpp guide](https://blog.steelph0enix.dev/posts/llama-cpp-guide/)
+- [Vulkan - Getting started - Ubuntu](https://vulkan.lunarg.com/doc/view/latest/linux/getting_started_ubuntu.html)
 
