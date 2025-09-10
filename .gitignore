@@ -44,6 +44,7 @@ Thumbs.db
 *~
 
 # local
+.venv
 shaderc/
 llama.cpp/
 llama_cpp_rl/

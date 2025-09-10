@@ -15,6 +15,8 @@ Complete setup with remote access via tunnels (ngrok/Cloudflare).
 - **Access**: Local and remote via HTTPS tunnels
 - **Documentation**: [webui/README.md](webui/README.md)
 
+### llama.cpp Setup
+
 ## Ollama Setup
 
 ### Installation
@@ -127,6 +129,10 @@ hf download unsloth/gpt-oss-20b-GGUF --include "gpt-oss-20b-Q5_K_M.gguf" --local
 # -co,   --color                          colorise output to distinguish prompt and user input from generations
 # --template "{{ .Prompt }}"
 llama-cli -m gpt-oss-20b-Q5_K_M.gguf --gpu-layers 12 -p "Test"
+
+# --no-webui
+llama-server --host 127.0.0.1 --port 9000 --temp 0.5 -ngl 99 -c 8192 --jinja -a gpt-oss -m gpt-oss-20b-f16.gguf
+
 ```
 
 #### Benchmarck
@@ -149,6 +155,43 @@ ggml_vulkan: 0 = AMD Radeon Graphics (RADV GFX1150) (radv) | uma: 1 | fp16: 1 | 
 | gpt-oss ?B F16                 |  12.83 GiB |    20.91 B | Vulkan     |  99 |  1 |           pp512 |        240.03 ± 2.56 |
 | gpt-oss ?B F16                 |  12.83 GiB |    20.91 B | Vulkan     |  99 |  1 |           tg128 |         21.08 ± 0.05 |
 | gpt-oss ?B F16                 |  12.83 GiB |    20.91 B | Vulkan     |  99 |  1 |    pp1024+tg256 |         76.14 ± 0.15 |
+```
+
+### Build gpt-oss-20b GGUF
+
+```shell
+python3 -m venv ~/.venv/llama
+source ~/.venv/llama/bin/activate
+
+git clone https://github.com/ggml-org/llama.cpp.git
+pip install -r llama.cpp/requirements.txt
+
+cd llama.cpp
+# edit convert_hf_to_gguf_update.py and add the model if it is not there
+
+huggingface-cli login
+python3 convert_hf_to_gguf_update.py
+# go back
+cd -
+
+# Download model repo
+hf download openai/gpt-oss-20b --local-dir ./gpt-oss-20b
+cd ./gpt-oss-20b
+
+# Convert
+mkdir -p out
+python3 llama.cpp/convert_hf_to_gguf.py ./gpt-oss-20b --outfile out/gpt-oss-20b-f16.gguf --outtype f16
+
+
+# Quantize
+llama-quantize .out/gpt-oss-20b-f16.gguf .out/gpt-oss-20b-Q4_K_M.gguf Q4_K_M
+```
+
+#### Debug configuration
+
+```shell
+less chat_template.jinja
+
 ```
 
 ## System Requirements
@@ -178,4 +221,5 @@ sudo swapon /swap.img
 - [Ollama Configuration FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.md)
 - [llama.cpp guide](https://blog.steelph0enix.dev/posts/llama-cpp-guide/)
 - [Vulkan - Getting started - Ubuntu](https://vulkan.lunarg.com/doc/view/latest/linux/getting_started_ubuntu.html)
+- [How to convert HuggingFace model to GGUF format](https://github.com/ggml-org/llama.cpp/discussions/7927)
 
