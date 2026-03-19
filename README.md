@@ -180,6 +180,7 @@ cd ./gpt-oss-20b
 
 # Convert
 mkdir -p out
+pip install -r llama.cpp/requirements.txt
 python3 llama.cpp/convert_hf_to_gguf.py ./gpt-oss-20b --outfile out/gpt-oss-20b-f16.gguf --outtype f16
 
 
