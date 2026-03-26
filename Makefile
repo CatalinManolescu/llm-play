@@ -1,4 +1,4 @@
-.PHONY: llama-clone llama-update llama-build-nvidia llama-build-amd-vulkan llama-build-amd-rocm llama-run gpu-check run help
+.PHONY: llama-clone llama-update llama-build-nvidia llama-build-amd-vulkan llama-build-amd-rocm serve-llama serve-vllm serve-vllm-openai-gpt-oss-20b serve-vllm-qwen2.5-coder-7b serve-vllm-qwen2.5-coder-14b debug-gpu-check debug-htop debug-nvtop run help
 
 LLAMA_DIR ?= llama.cpp
 LLAMA_REPO ?= https://github.com/ggml-org/llama.cpp.git
@@ -7,6 +7,10 @@ LLAMA_INSTALL_PREFIX ?= $(abspath ./llama_cpp_rl)
 LLAMA_BUILD_DIR_BASE ?= build
 LLAMA_HOST ?= 0.0.0.0
 LLAMA_PORT ?= 9000
+VLLM_HOST ?= 0.0.0.0
+VLLM_PORT ?= 9010
+VLLM_DOWNLOAD_DIR ?= models/hf
+VLLM_ARGS ?=
 
 help:
 	@echo "Targets:"
@@ -15,8 +19,15 @@ help:
 	@echo "  llama-build-nvidia      Build llama.cpp with NVIDIA CUDA"
 	@echo "  llama-build-amd-vulkan  Build llama.cpp with AMD Vulkan"
 	@echo "  llama-build-amd-rocm    Build llama.cpp with AMD ROCm (HIP)"
-	@echo "  gpu-check     Inspect detected GPU hardware and drivers"
-	@echo "  llama-run     Run llama-server with a model path (MODEL=...)"
+	@echo "  debug-gpu-check     Inspect detected GPU hardware and drivers"
+	@echo "  debug-htop          Open htop"
+	@echo "  debug-nvtop         Open nvtop"
+	@echo "  serve-llama   Run llama-server with a model path (MODEL=...)"
+	@echo "  serve-vllm    Run vLLM with a Hugging Face model (MODEL=...)"
+	@echo "  serve-llama-gpt-oss-20b  Run llama.cpp for openai/gpt-oss-20b"
+	@echo "  serve-vllm-openai-gpt-oss-20b  Run vLLM for openai/gpt-oss-20b"
+	@echo "  serve-vllm-qwen2.5-coder-7b  Run vLLM for Qwen/Qwen2.5-Coder-7B"
+	@echo "  serve-vllm-qwen2.5-coder-14b  Run vLLM for Qwen/Qwen2.5-Coder-14B"
 
 llama-clone:
 	@if [ -d "$(LLAMA_DIR)/.git" ]; then \
@@ -60,7 +71,7 @@ llama-build-amd-rocm:
 	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
 	@cmake --install "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)"
 
-gpu-check:
+debug-gpu-check:
 	@printf '\n== PCI display devices ==\n'
 	@lspci | grep -i -E "vga|3d|display" || echo "No display devices found via lspci"
 	@printf '\n== Display hardware details ==\n'
@@ -103,15 +114,76 @@ gpu-check:
 		echo "vulkaninfo not installed"; \
 	fi
 
-llama-run:
+debug-htop:
+	@if command -v htop >/dev/null 2>&1; then \
+		htop; \
+	else \
+		echo "htop not installed"; \
+		exit 1; \
+	fi
+
+debug-nvtop:
+	@if command -v nvtop >/dev/null 2>&1; then \
+		nvtop; \
+	else \
+		echo "nvtop not installed"; \
+		exit 1; \
+	fi
+
+serve-llama:
 	@if [ -z "$(MODEL)" ]; then \
 		echo "MODEL is required. Example:"; \
-		echo "  make llama-run MODEL=models/gpt-oss/gpt-oss-20b-mxfp4.gguf MODEL_NAME=gpt-oss"; \
+		echo "  make serve-llama MODEL=models/gpt-oss/gpt-oss-20b-mxfp4.gguf MODEL_NAME=gpt-oss"; \
 		exit 1; \
 	fi
 	@llama-server --host "$(LLAMA_HOST)" --port "$(LLAMA_PORT)" --temp 0.5 \
 		-ngl 999 -c 0 -a "$(MODEL_NAME)" \
-		-m "$(MODEL)" -ub 2048 -b 2048 --jinja
+		-m "$(MODEL)" -ub 2048 -b 2048 --jinja \
+		$(VLLM_ARGS)
+
+serve-llama-gpt-oss-20b:
+	@$(MAKE) serve-llama \
+	  MODEL=models/gpt-oss/gpt-oss-20b-mxfp4.gguf MODEL_NAME=gpt-oss
+
+serve-vllm:
+	@if [ -z "$(MODEL)" ]; then \
+		echo "MODEL is required. Example:"; \
+		echo "  make serve-vllm MODEL=Qwen/Qwen2.5-14B"; \
+		exit 1; \
+	fi
+	@mkdir -p "$(VLLM_DOWNLOAD_DIR)"
+	@vllm serve "$(MODEL)" --host "$(VLLM_HOST)" --port "$(VLLM_PORT)" \
+		--download-dir "$(VLLM_DOWNLOAD_DIR)" --enable-auto-tool-choice \
+		--gpu-memory-utilization 0.95 --enforce-eager \
+		$(VLLM_ARGS)
+
+serve-vllm-openai-gpt-oss-20b:
+	@export HSA_NO_SCRATCH_RECLAIM=1
+	@export AMDGCN_USE_BUFFER_OPS=0
+	@export VLLM_ROCM_USE_AITER=1
+	@export VLLM_ROCM_QUICK_REDUCE_QUANTIZATION=INT4
+	@export HSA_NO_SCRATCH_RECLAIM=1
+	@export PYTORCH_TUNABLEOP_ENABLED=0
+	@$(MAKE) serve-vllm \
+		MODEL="openai/gpt-oss-20b" \
+		VLLM_ARGS="--max-model-len 4k --max-num-batched-tokens 2048 --max-num-seqs 1 --tool-call-parser openai \
+		--no-enable-prefix-caching --tensor_parallel_size 1 \
+		--attention-backend ROCM_AITER_UNIFIED_ATTN -cc.pass_config.fuse_rope_kvcache=True -cc.use_inductor_graph_partition=True"
+
+serve-vllm-qwen2.5-coder-7b:
+	@$(MAKE) serve-vllm \
+		MODEL="Qwen/Qwen2.5-Coder-7B" \
+		VLLM_ARGS="--max-model-len 16k --max-num-batched-tokens 2048 --max-num-seqs 2 --tool-call-parser hermes"
+
+serve-vllm-qwen2.5-coder-14b:
+	@$(MAKE) serve-vllm \
+		MODEL="Qwen/Qwen2.5-Coder-14B" \
+		VLLM_ARGS="--max-model-len 16k --max-num-batched-tokens 2048 --max-num-seqs 2 --tool-call-parser hermes"
+
+serve-vllm-qwen3.5-9b:
+	@$(MAKE) serve-vllm \
+		MODEL="Qwen/Qwen3.5-9B" \
+		VLLM_ARGS="--max-num-batched-tokens 2048 --max-num-seqs 2"
 
 test:
 	@echo "... $(MODEL)"

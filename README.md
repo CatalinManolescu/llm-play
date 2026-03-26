@@ -17,6 +17,16 @@ Complete setup with remote access via tunnels (ngrok/Cloudflare).
 
 ### llama.cpp Setup
 
+## vLLM Setup
+
+```shell
+uv venv .venv/vllm --python 3.12 --seed --managed-python
+source .venv/vllm/bin/activate
+uv pip install vllm --extra-index-url https://wheels.vllm.ai/rocm/
+uv pip install triton triton_kernels torch torchvision --upgrade --extra-index-url https://wheels.vllm.ai/rocm/
+#uv pip install vllm --torch-backend=auto
+```
+
 ## Ollama Setup
 
 ### Installation
