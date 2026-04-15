@@ -28,6 +28,7 @@ help:
 	@echo "  serve-vllm-openai-gpt-oss-20b  Run vLLM for openai/gpt-oss-20b"
 	@echo "  serve-vllm-qwen2.5-coder-7b  Run vLLM for Qwen/Qwen2.5-Coder-7B"
 	@echo "  serve-vllm-qwen2.5-coder-14b  Run vLLM for Qwen/Qwen2.5-Coder-14B"
+	@echo "  serve-vllm-qwen3.5-9b  Run vLLM for Qwen/Qwen3.5-9B"
 
 llama-clone:
 	@if [ -d "$(LLAMA_DIR)/.git" ]; then \
@@ -66,6 +67,7 @@ llama-build-amd-rocm:
 	@cmake -S "$(LLAMA_DIR)" -B "$(LLAMA_BUILD_DIR_BASE)-rocm" -G Ninja \
 		-DCMAKE_BUILD_TYPE="$(LLAMA_BUILD_TYPE)" \
 		-DCMAKE_INSTALL_PREFIX="$(LLAMA_INSTALL_PREFIX)" \
+		-DCMAKE_HIP_COMPILER="$$(hipconfig -l)/clang" \
 		-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_BUILD_SERVER=ON \
 		-DGGML_HIP=ON
 	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
@@ -166,14 +168,14 @@ serve-vllm-openai-gpt-oss-20b:
 	@export PYTORCH_TUNABLEOP_ENABLED=0
 	@$(MAKE) serve-vllm \
 		MODEL="openai/gpt-oss-20b" \
-		VLLM_ARGS="--max-model-len 4k --max-num-batched-tokens 2048 --max-num-seqs 1 --tool-call-parser openai \
+		VLLM_ARGS="--max-num-batched-tokens 2048 --max-num-seqs 20 --tool-call-parser openai \
 		--no-enable-prefix-caching --tensor_parallel_size 1 \
 		--attention-backend ROCM_AITER_UNIFIED_ATTN -cc.pass_config.fuse_rope_kvcache=True -cc.use_inductor_graph_partition=True"
 
 serve-vllm-qwen2.5-coder-7b:
 	@$(MAKE) serve-vllm \
 		MODEL="Qwen/Qwen2.5-Coder-7B" \
-		VLLM_ARGS="--max-model-len 16k --max-num-batched-tokens 2048 --max-num-seqs 2 --tool-call-parser hermes"
+		VLLM_ARGS=" --max-num-batched-tokens 2048 --max-num-seqs 2 --tool-call-parser hermes"
 
 serve-vllm-qwen2.5-coder-14b:
 	@$(MAKE) serve-vllm \
