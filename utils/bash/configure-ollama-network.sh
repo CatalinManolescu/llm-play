@@ -19,30 +19,30 @@ sudo systemctl restart ollama
 echo "Ollama configured for external access on 0.0.0.0:11434"
 echo "You can verify with: curl http://localhost:11434/api/tags"
 
-echo "Configure Ollama Firewall"
+echo "Configure Simple Firewall"
 
-echo "Copy firewall script to /usr/local/bin/ollama-firewall.sh"
-yes | sudo cp -rf "$(dirname "$0")/ollama-firewall.sh" /usr/local/bin/ollama-firewall.sh
-sudo chmod 0755 /usr/local/bin/ollama-firewall.sh
+echo "Copy firewall script to /usr/local/bin/simple-firewall.sh"
+yes | sudo cp -rf "$(dirname "$0")/simple-firewall.sh" /usr/local/bin/simple-firewall.sh
+sudo chmod 0755 /usr/local/bin/simple-firewall.sh
 
-echo "Creating systemd service for Ollama firewall"
-sudo tee /etc/systemd/system/ollama-firewall.service > /dev/null << EOF
+echo "Creating systemd service for Simple Firewall"
+sudo tee /etc/systemd/system/simple-firewall.service > /dev/null << EOF
 [Unit]
-Description=Restrict Ollama access
+Description=Restrict access to trusted networks
 After=network-online.target docker.service
 Wants=network-online.target
 Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/ollama-firewall.sh apply
-ExecStop=/usr/local/bin/ollama-firewall.sh remove
+ExecStart=/usr/local/bin/simple-firewall.sh apply
+ExecStop=/usr/local/bin/simple-firewall.sh remove
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-echo "Systemd service created at /etc/systemd/system/ollama-firewall.service"
+echo "Systemd service created at /etc/systemd/system/simple-firewall.service"
 sudo systemctl daemon-reload
-sudo systemctl enable --now ollama-firewall.service
+sudo systemctl enable --now simple-firewall.service
