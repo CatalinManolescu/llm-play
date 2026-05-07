@@ -10,9 +10,35 @@ LLAMA_BUILD_DIR_BASE ?= build
 LLAMA_HOST ?= 0.0.0.0
 LLAMA_PORT ?= 9000
 VLLM_HOST ?= 0.0.0.0
-VLLM_PORT ?= 9010
+VLLM_PORT ?= 9100
 VLLM_DOWNLOAD_DIR ?= models/hf
 VLLM_ARGS ?=
+
+LLAMA_SERVE_VARS := \
+	LLAMA_ARG_ALIAS \
+	LLAMA_ARG_HOST \
+	LLAMA_ARG_PORT \
+	LLAMA_ARG_TEMP \
+	LLAMA_ARG_CTX_SIZE \
+	LLAMA_ARG_PRESENCE_PENALTY \
+	LLAMA_ARG_REPEAT_PENALTY \
+	LLAMA_ARG_FLASH_ATTN \
+	LLAMA_ARG_N_PREDICT \
+	LLAMA_ARG_MIN_P \
+	LLAMA_ARG_TOP_P \
+	LLAMA_ARG_TOP_K \
+	LLAMA_ARG_BATCH \
+	LLAMA_ARG_UBATCH \
+	LLAMA_ARG_N_GPU_LAYERS \
+	LLAMA_ARG_JINJA \
+	LLAMA_ARG_CACHE_PROMPT \
+	LLAMA_ARG_CACHE_RAM \
+	LLAMA_ARG_REASONING \
+	LLAMA_ARG_WEBUI \
+	LLAMA_ARG_MMAP \
+	LLAMA_ARG_CACHE_TYPE_K \
+	LLAMA_ARG_CACHE_TYPE_V \
+	LLAMA_CHAT_TEMPLATE_KWARGS
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[A-Za-z0-9_.-]+:.*## / {printf "  %-32s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -90,7 +116,6 @@ debug-check-gpu: ## Inspect detected GPU hardware and drivers
 	@printf '\n== AMD ROCm GPUs ==\n'
 	@if command -v rocminfo >/dev/null 2>&1; then \
 	  rocminfo | grep -i "Marketing Name:" \
-# 		rocminfo; \
 	else \
 		echo "rocminfo not installed"; \
 	fi
@@ -125,29 +150,113 @@ watch-gpu: ## Watch GPU and VRAM usage
 		exit 1; \
 	fi
 
+llama-serve-vars: ## Print llama-serve variable names
+	@printf '%s\n' $(LLAMA_SERVE_VARS)
+
 llama-serve: export LLAMA_ARG_HOST ?= $(LLAMA_HOST)
 llama-serve: export LLAMA_ARG_PORT ?= $(LLAMA_PORT)
+# temperature; default 0.8; 0.0 = greedy, 1.0 = typical, >1.0 more random
+llama-serve: export LLAMA_ARG_TEMP ?= 0.8
+# prompt context size; 0 = loaded from model, -1 = no limit
 llama-serve: export LLAMA_ARG_CTX_SIZE ?= 0
+# 0.0 disables the presence penalty; default 0.0
+llama-serve: export LLAMA_ARG_PRESENCE_PENALTY ?= 0.0
+# 1.0 disables the repeat penalty; default 1.0
+llama-serve: export LLAMA_ARG_REPEAT_PENALTY ?= 1.0
+ # -1 = infinity; default -1 (no limit)
 llama-serve: export LLAMA_ARG_N_PREDICT ?= -1
+# 0.0 disables min-p; default 0.05
+llama-serve: export LLAMA_ARG_MIN_P ?= 0.0
+# 1.0 disables top-p; default 0.95
+llama-serve: export LLAMA_ARG_TOP_P ?= 1.0
+# 0 disables top-k; default 40
+llama-serve: export LLAMA_ARG_TOP_K ?= 0
+# logical maximum batch size; default 2048
 llama-serve: export LLAMA_ARG_BATCH ?= 2048
-llama-serve: export LLAMA_ARG_UBATCH ?= 2048
+# physical maximum batch size; default 512
+llama-serve: export LLAMA_ARG_UBATCH ?= 512
+# max GPU layers; auto|all|number, default auto; set to 999 to use GPU for all layers
 llama-serve: export LLAMA_ARG_N_GPU_LAYERS ?= 999
+# jinja template engine; enabled by default
 llama-serve: export LLAMA_ARG_JINJA ?= true
+# prompt cache; enabled by default
 llama-serve: export LLAMA_ARG_CACHE_PROMPT ?= true
+# cache RAM in MiB; -1 = no limit, 0 = disable
+llama-serve: export LLAMA_ARG_CACHE_RAM ?= 8192
+# on|off|auto
+llama-serve: export LLAMA_ARG_REASONING ?= auto
+llama-serve: export LLAMA_ARG_THINK_BUDGET ?= -1
+llama-serve: LLAMA_CHAT_TEMPLATE_KWARGS ?=
+# web UI; enabled by default
+llama-serve: export LLAMA_ARG_WEBUI ?= false
+# whether to memory-map model; enabled by default
+llama-serve: export LLAMA_ARG_MMAP ?= on
+# on|off|auto; default auto
+llama-serve: export LLAMA_ARG_FLASH_ATTN ?= off
+# KV cache K type; f32|f16|bf16|q8_0|q4_0|q4_1|iq4_nl|q5_0|q5_1; default: f16
+llama-serve: export LLAMA_ARG_CACHE_TYPE_K ?= f16
+# KV cache V type; f32|f16|bf16|q8_0|q4_0|q4_1|iq4_nl|q5_0|q5_1; default: f16
+llama-serve: export LLAMA_ARG_CACHE_TYPE_V ?= f16
 llama-serve: ## Run llama-server with a model path (MODEL=...)
-	@env | grep LLAMA_ARG | sort
+	@env | grep -E '^(LLAMA_ARG|LLAMA_CHAT_TEMPLATE_KWARGS)' | sort
 	@if [ -z "$(MODEL)" ]; then \
 		echo "MODEL is required. Example:"; \
 		echo "  make llama-serve MODEL=models/gpt-oss/gpt-oss-20b-mxfp4.gguf LLAMA_ARG_ALIAS=gpt-oss"; \
 		exit 1; \
 	fi
-	@llama-server --temp 0.5 \
-		-m "$(MODEL)"
+	@llama-server --temp $(LLAMA_ARG_TEMP) \
+		--min-p $(LLAMA_ARG_MIN_P) --top-p $(LLAMA_ARG_TOP_P) \
+		--presence-penalty $(LLAMA_ARG_PRESENCE_PENALTY) --repeat-penalty $(LLAMA_ARG_REPEAT_PENALTY) \
+		-m "$(MODEL)" $(if $(LLAMA_CHAT_TEMPLATE_KWARGS),--chat-template-kwargs '$(LLAMA_CHAT_TEMPLATE_KWARGS)') $(KWARGS)
 
 llama-serve-gpt-oss-20b: ## Run llama.cpp for openai/gpt-oss-20b
 	@$(MAKE) llama-serve \
 	  MODEL=models/gpt-oss/gpt-oss-20b-mxfp4.gguf \
-	  LLAMA_ARG_ALIAS=gpt-oss
+	  LLAMA_ARG_ALIAS=gpt-oss \
+		LLAMA_ARG_TEMP=1
+
+llama-serve-qwen3.6: export MODEL ?= models/unsloth/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
+llama-serve-qwen3.6: export LLAMA_ARG_ALIAS ?= qwen3.6
+llama-serve-qwen3.6: export LLAMA_ARG_PORT ?= 9010
+llama-serve-qwen3.6: export LLAMA_ARG_WEBUI ?= true
+llama-serve-qwen3.6: export LLAMA_ARG_TEMP ?= 1
+llama-serve-qwen3.6: export LLAMA_ARG_TOP_P ?= 0.95
+llama-serve-qwen3.6: export LLAMA_ARG_PRESENCE_PENALTY ?= 1.5
+llama-serve-qwen3.6: export LLAMA_ARG_FLASH_ATTN ?= on
+llama-serve-qwen3.6: ## Run llama.cpp Qwen3.6 for general usage with default model Qwen3.6-35B-A3B-UD-IQ4_NL_XL
+	@$(MAKE) llama-serve \
+		LLAMA_ARG_TOP_K=20 \
+		LLAMA_ARG_MIN_P=0 \
+		LLAMA_ARG_REPEAT_PENALTY=1.0 \
+		KWARGS="--fit off"
+
+llama-serve-qwen3.6-coder: export LLAMA_ARG_ALIAS ?= qwen3.6-coder
+llama-serve-qwen3.6-coder: export LLAMA_ARG_PORT ?= 9020
+llama-serve-qwen3.6-coder: export LLAMA_ARG_WEBUI ?= false
+llama-serve-qwen3.6-coder: export LLAMA_ARG_TEMP ?= 0.6
+llama-serve-qwen3.6-coder: export LLAMA_ARG_FLASH_ATTN ?= on
+# llama-serve-qwen3.6-coding: export LLAMA_ARG_CACHE_TYPE_K ?= q8_0
+# llama-serve-qwen3.6-coding: export LLAMA_ARG_CACHE_TYPE_V ?= q8_0
+llama-serve-qwen3.6-coder: export LLAMA_ARG_THINK_BUDGET ?= 16384
+llama-serve-qwen3.6-coder: ## Run llama.cpp Qwen3.6 for coding tasks
+	@$(MAKE) llama-serve-qwen3.6 \
+		LLAMA_ARG_PRESENCE_PENALTY=0.0
+
+llama-serve-qwen3.6-instruct: ## Run llama.cpp Qwen3.6 Instruct (non-thinking)
+	@$(MAKE) llama-serve-qwen3.6 \
+		LLAMA_ARG_TEMP=0.7 \
+		LLAMA_ARG_TOP_P=0.8 \
+		LLAMA_ARG_PRESENCE_PENALTY=1.5 \
+		LLAMA_CHAT_TEMPLATE_KWARGS='{"enable_thinking":false}'
+
+llama-serve-qwen3.6-mini: ## Run llama.cpp for Qwen3.6-35B-A3B-UD-IQ2
+	@$(MAKE) llama-serve-qwen3.6-coder \
+	  MODEL=models/unsloth/Qwen3.6-35B-A3B-UD-IQ2_M.gguf \
+	  LLAMA_ARG_ALIAS=qwen3.6-mini \
+		LLAMA_ARG_PORT=9000 \
+		LLAMA_ARG_WEBUI=true \
+		LLAMA_ARG_TEMP=1 \
+		LLAMA_ARG_FLASH_ATTN=on
 
 vllm-serve: ## Run vLLM with a Hugging Face model (MODEL=...)
 	@if [ -z "$(MODEL)" ]; then \
@@ -188,6 +297,3 @@ vllm-serve-qwen3.5-9b: ## Run vLLM for Qwen/Qwen3.5-9B
 	@$(MAKE) vllm-serve \
 		MODEL="Qwen/Qwen3.5-9B" \
 		VLLM_ARGS="--max-num-batched-tokens 2048 --max-num-seqs 2 --tool-call-parser qwen3_coder"
-
-test: ## Echo the current model name
-	@echo "... $(MODEL)"
