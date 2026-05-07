@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PORT="11434"
+PORTS=("11434" "9000:9999")
 DOCKER_SUBNET="172.16.0.0/12"
+TRUSTED_NETWORKS=("127.0.0.1/32" "$DOCKER_SUBNET" "10.42.0.0/24" "192.168.96.0/20")
 IPTABLES="${IPTABLES:-/usr/sbin/iptables}"
 
 need_root() {
@@ -37,22 +38,39 @@ delete_rule_if_exists() {
   done
 }
 
-apply_rules() {
-  # Remove old copies first so ordering stays sane
-  delete_rule_if_exists -p tcp --dport "$PORT" -j DROP
-  delete_rule_if_exists -p tcp -s "$DOCKER_SUBNET" --dport "$PORT" -j ACCEPT
-  delete_rule_if_exists -p tcp -s 127.0.0.1/32 --dport "$PORT" -j ACCEPT
+apply_port_rules() {
+  local port
+  local trusted_network
+  local pos
+  for port in "${PORTS[@]}"; do
+    delete_rule_if_exists -p tcp --dport "$port" -j DROP
+    for trusted_network in "${TRUSTED_NETWORKS[@]}"; do
+      delete_rule_if_exists -p tcp -s "$trusted_network" --dport "$port" -j ACCEPT
+    done
 
-  # Re-add in the correct order
-  insert_rule 1 -p tcp -s 127.0.0.1/32 --dport "$PORT" -j ACCEPT
-  insert_rule 2 -p tcp -s "$DOCKER_SUBNET" --dport "$PORT" -j ACCEPT
-  insert_rule 3 -p tcp --dport "$PORT" -j DROP
+    pos=1
+    for trusted_network in "${TRUSTED_NETWORKS[@]}"; do
+      insert_rule "$pos" -p tcp -s "$trusted_network" --dport "$port" -j ACCEPT
+      pos=$((pos + 1))
+    done
+    insert_rule "$pos" -p tcp --dport "$port" -j DROP
+  done
+}
+
+apply_rules() {
+  apply_port_rules
 }
 
 remove_rules() {
-  delete_rule_if_exists -p tcp --dport "$PORT" -j DROP
-  delete_rule_if_exists -p tcp -s "$DOCKER_SUBNET" --dport "$PORT" -j ACCEPT
-  delete_rule_if_exists -p tcp -s 127.0.0.1/32 --dport "$PORT" -j ACCEPT
+  local port
+  local trusted_network
+
+  for port in "${PORTS[@]}"; do
+    delete_rule_if_exists -p tcp --dport "$port" -j DROP
+    for trusted_network in "${TRUSTED_NETWORKS[@]}"; do
+      delete_rule_if_exists -p tcp -s "$trusted_network" --dport "$port" -j ACCEPT
+    done
+  done
 }
 
 status_rules() {
@@ -63,8 +81,8 @@ usage() {
   cat <<EOF
 Usage: $0 {apply|remove|status}
 
-apply   Add/update INPUT rules for Ollama port $PORT
-remove  Remove INPUT rules for Ollama port $PORT
+apply   Add/update INPUT rules for port list: ${PORTS[*]}
+remove  Remove INPUT rules for port list: ${PORTS[*]}
 status  Show INPUT chain
 EOF
 }
