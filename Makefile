@@ -43,55 +43,6 @@ LLAMA_SERVE_VARS := \
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[A-Za-z0-9_.-]+:.*## / {printf "  %-32s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-llama-clone: ## Clone llama.cpp into $(LLAMA_DIR)
-	@if [ -d "$(LLAMA_DIR)/.git" ]; then \
-		echo "llama.cpp already present at $(LLAMA_DIR)"; \
-	else \
-		git clone "$(LLAMA_REPO)" "$(LLAMA_DIR)"; \
-	fi
-
-llama-update: ## Update llama.cpp in $(LLAMA_DIR)
-	@if [ -d "$(LLAMA_DIR)/.git" ]; then \
-		git -C "$(LLAMA_DIR)" pull --ff-only; \
-	else \
-		echo "No git repo found at $(LLAMA_DIR). Run 'make llama-clone' first."; \
-		exit 1; \
-	fi
-
-llama-build-nvidia: ## Build llama.cpp with NVIDIA CUDA
-	@cmake -S "$(LLAMA_DIR)" -B "$(LLAMA_BUILD_DIR_BASE)-cuda" -G Ninja \
-		-DCMAKE_BUILD_TYPE="$(LLAMA_BUILD_TYPE)" \
-		-DCMAKE_INSTALL_PREFIX="$(LLAMA_INSTALL_PREFIX)" \
-		-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_BUILD_SERVER=ON \
-		-DLLAMA_CUDA=ON
-	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-cuda" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
-	@cmake --install "$(LLAMA_BUILD_DIR_BASE)-cuda" --config "$(LLAMA_BUILD_TYPE)"
-
-llama-build-amd-vulkan: ## Build llama.cpp with AMD Vulkan
-	@cmake -S "$(LLAMA_DIR)" -B "$(LLAMA_BUILD_DIR_BASE)-vulkan" -G Ninja \
-		-DCMAKE_BUILD_TYPE="$(LLAMA_BUILD_TYPE)" \
-		-DCMAKE_INSTALL_PREFIX="$(LLAMA_INSTALL_PREFIX)" \
-		-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_BUILD_SERVER=ON \
-		-DGGML_CLBLAST=ON -DGGML_VULKAN=ON
-	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-vulkan" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
-	@cmake --install "$(LLAMA_BUILD_DIR_BASE)-vulkan" --config "$(LLAMA_BUILD_TYPE)"
-
-llama-build-amd-rocm: ## Build llama.cpp with AMD ROCm (HIP)
-	@cmake -S "$(LLAMA_DIR)" -B "$(LLAMA_BUILD_DIR_BASE)-rocm" -G Ninja \
-		-DCMAKE_BUILD_TYPE="$(LLAMA_BUILD_TYPE)" \
-		-DCMAKE_INSTALL_PREFIX="$(LLAMA_INSTALL_PREFIX)" \
-		-DCMAKE_HIP_COMPILER="$$(hipconfig -l)/clang" \
-		-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_BUILD_SERVER=ON \
-		-DGGML_HIP=ON
-	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
-	@cmake --install "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)"
-
-unsloth-studio-install: ## Install Unsloth Studio
-	@curl -fsSL https://unsloth.ai/install.sh | sh
-
-unsloth-studio-update: ## Update Unsloth Studio
-	@unsloth studio update
-
 debug-check-gpu: ## Inspect detected GPU hardware and drivers
 	@printf '\n== PCI display devices ==\n'
 	@lspci | grep -i -E "vga|3d|display" || echo "No display devices found via lspci"
@@ -149,6 +100,56 @@ watch-gpu: ## Watch GPU and VRAM usage
 		echo "nvtop not installed"; \
 		exit 1; \
 	fi
+
+unsloth-studio-install: ## Install Unsloth Studio
+	@curl -fsSL https://unsloth.ai/install.sh | sh
+
+unsloth-studio-update: ## Update Unsloth Studio
+	@unsloth studio update
+
+llama-clone: ## Clone llama.cpp into $(LLAMA_DIR)
+	@if [ -d "$(LLAMA_DIR)/.git" ]; then \
+		echo "llama.cpp already present at $(LLAMA_DIR)"; \
+	else \
+		git clone "$(LLAMA_REPO)" "$(LLAMA_DIR)"; \
+	fi
+
+llama-update: ## Update llama.cpp in $(LLAMA_DIR)
+	@if [ -d "$(LLAMA_DIR)/.git" ]; then \
+		git -C "$(LLAMA_DIR)" pull --ff-only; \
+	else \
+		echo "No git repo found at $(LLAMA_DIR). Run 'make llama-clone' first."; \
+		exit 1; \
+	fi
+
+llama-build-nvidia: ## Build llama.cpp with NVIDIA CUDA
+	@cmake -S "$(LLAMA_DIR)" -B "$(LLAMA_BUILD_DIR_BASE)-cuda" -G Ninja \
+		-DCMAKE_BUILD_TYPE="$(LLAMA_BUILD_TYPE)" \
+		-DCMAKE_INSTALL_PREFIX="$(LLAMA_INSTALL_PREFIX)" \
+		-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_BUILD_SERVER=ON \
+		-DLLAMA_CUDA=ON
+	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-cuda" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
+	@cmake --install "$(LLAMA_BUILD_DIR_BASE)-cuda" --config "$(LLAMA_BUILD_TYPE)"
+
+llama-build-amd-vulkan: ## Build llama.cpp with AMD Vulkan
+	@cmake -S "$(LLAMA_DIR)" -B "$(LLAMA_BUILD_DIR_BASE)-vulkan" -G Ninja \
+		-DCMAKE_BUILD_TYPE="$(LLAMA_BUILD_TYPE)" \
+		-DCMAKE_INSTALL_PREFIX="$(LLAMA_INSTALL_PREFIX)" \
+		-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_BUILD_SERVER=ON \
+		-DGGML_CLBLAST=ON -DGGML_VULKAN=ON
+	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-vulkan" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
+	@cmake --install "$(LLAMA_BUILD_DIR_BASE)-vulkan" --config "$(LLAMA_BUILD_TYPE)"
+
+llama-build-amd-rocm: ## Build llama.cpp with AMD ROCm (HIP)
+	@cmake -S "$(LLAMA_DIR)" -B "$(LLAMA_BUILD_DIR_BASE)-rocm" -G Ninja \
+		-DCMAKE_BUILD_TYPE="$(LLAMA_BUILD_TYPE)" \
+		-DCMAKE_INSTALL_PREFIX="$(LLAMA_INSTALL_PREFIX)" \
+		-DCMAKE_HIP_COMPILER="$$(hipconfig -l)/clang" \
+		-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_BUILD_SERVER=ON \
+		-DGGML_HIP=ON
+	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
+	@cmake --install "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)"
+
 
 llama-serve-vars: ## Print llama-serve variable names
 	@printf '%s\n' $(LLAMA_SERVE_VARS)
@@ -208,6 +209,14 @@ llama-serve: ## Run llama-server with a model path (MODEL=...)
 		--min-p $(LLAMA_ARG_MIN_P) --top-p $(LLAMA_ARG_TOP_P) \
 		--presence-penalty $(LLAMA_ARG_PRESENCE_PENALTY) --repeat-penalty $(LLAMA_ARG_REPEAT_PENALTY) \
 		-m "$(MODEL)" $(if $(LLAMA_CHAT_TEMPLATE_KWARGS),--chat-template-kwargs '$(LLAMA_CHAT_TEMPLATE_KWARGS)') $(KWARGS)
+
+llama-serve-autocomplete: export LLAMA_ARG_PORT ?= 9001
+llama-serve-autocomplete: ## Run llama.cpp for code completion
+	@$(MAKE) llama-serve \
+	  MODEL=models/jetbrains/mellum-4b-dpo-all-q8_0.gguf \
+	  LLAMA_ARG_ALIAS=mellum \
+		LLAMA_ARG_TEMP=0,6 \
+		LLAMA_ARG_FLASH_ATTN=on
 
 llama-serve-gpt-oss-20b: ## Run llama.cpp for openai/gpt-oss-20b
 	@$(MAKE) llama-serve \
