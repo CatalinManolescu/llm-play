@@ -198,6 +198,7 @@ llama-serve: export LLAMA_ARG_FLASH_ATTN ?= off
 llama-serve: export LLAMA_ARG_CACHE_TYPE_K ?= f16
 # KV cache V type; f32|f16|bf16|q8_0|q4_0|q4_1|iq4_nl|q5_0|q5_1; default: f16
 llama-serve: export LLAMA_ARG_CACHE_TYPE_V ?= f16
+llama-serve: export LLAMA_ARG_FIT_TARGET ?= 1536
 llama-serve: ## Run llama-server with a model path (MODEL=...)
 	@env | grep -E '^(LLAMA_ARG|LLAMA_CHAT_TEMPLATE_KWARGS)' | sort
 	@if [ -z "$(MODEL)" ]; then \
@@ -232,6 +233,9 @@ llama-serve-qwen3.6: export LLAMA_ARG_TEMP ?= 1
 llama-serve-qwen3.6: export LLAMA_ARG_TOP_P ?= 0.95
 llama-serve-qwen3.6: export LLAMA_ARG_PRESENCE_PENALTY ?= 1.5
 llama-serve-qwen3.6: export LLAMA_ARG_FLASH_ATTN ?= on
+llama-serve-qwen3.6: export LLAMA_ARG_N_PREDICT ?= 32768
+llama-serve-qwen3.6: export LLAMA_ARG_NO_MMAP ?= on
+llama-serve-qwen3.6: export LLAMA_ARG_MLOCK ?= on
 llama-serve-qwen3.6: ## Run llama.cpp Qwen3.6 for general usage with default model Qwen3.6-35B-A3B-UD-IQ4_NL_XL
 	@$(MAKE) llama-serve \
 		LLAMA_ARG_TOP_K=20 \

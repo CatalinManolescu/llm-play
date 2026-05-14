@@ -31,7 +31,6 @@ sudo tee /etc/systemd/system/simple-firewall.service > /dev/null << EOF
 Description=Restrict access to trusted networks
 After=network-online.target docker.service
 Wants=network-online.target
-Requires=docker.service
 
 [Service]
 Type=oneshot
