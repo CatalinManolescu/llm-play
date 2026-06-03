@@ -71,7 +71,7 @@ debug-check-gpu: ## Inspect detected GPU hardware and drivers
 	fi
 	@printf '\n== AMD ROCm GPUs ==\n'
 	@if command -v rocminfo >/dev/null 2>&1; then \
-	  rocminfo | grep -i "Marketing Name:" \
+	  rocminfo | grep -i "Marketing Name:"; \
 	else \
 		echo "rocminfo not installed"; \
 	fi
@@ -365,7 +365,43 @@ vllm-serve: ## Run vLLM with a Hugging Face model (MODEL=...)
 
 vllm-docker-serve-rocm: export VLLM_DOCKER_IMAGE ?= vllm/vllm-openai-rocm:latest
 vllm-docker-serve-rocm: export VLLM_DOCKER_NAME ?= vllm-openai-rocm
-vllm-docker-serve-rocm: export VLLM_ARGS ?= --cpu-offload-gb 8 --enable-prefix-caching --tensor-parallel-size 1 --kv-cache-dtype fp8
+vllm-docker-serve-rocm: export MODEL ?= Qwen/Qwen3.6-35B-A3B
+# vllm-docker-serve-rocm: export VLLM_SERVED_MODEL_NAME ?= qwen3.6-35b-a3b
+vllm-docker-serve-rocm: export VLLM_GENERATION_CONFIG ?= {"temperature":0.6,"top_p":0.95}
+vllm-docker-serve-rocm: export VLLM_GPU_MEMORY_UTILIZATION ?= 0.90
+vllm-docker-serve-rocm: export VLLM_CPU_OFFLOAD_GB ?= 8
+vllm-docker-serve-rocm: export VLLM_KV_CACHE_DTYPE ?= fp8
+vllm-docker-serve-rocm: export VLLM_QUANTIZATION ?=
+vllm-docker-serve-rocm: export VLLM_LOAD_FORMAT ?=
+vllm-docker-serve-rocm: export VLLM_TOKENIZER ?=
+vllm-docker-serve-rocm: export VLLM_MAX_MODEL_LEN ?= 4096 # 8192
+vllm-docker-serve-rocm: export VLLM_MAX_NUM_BATCHED_TOKENS ?= 2048
+vllm-docker-serve-rocm: export VLLM_MAX_NUM_SEQS ?= 20
+vllm-docker-serve-rocm: export VLLM_ROCM_USE_AITER ?= 0
+vllm-docker-serve-rocm: export VLLM_ROCM_USE_AITER_MOE ?= 0
+vllm-docker-serve-rocm: export VLLM_ROCM_QUICK_REDUCE_QUANTIZATION ?= INT4
+# ROCM_AITER_UNIFIED_ATTN
+vllm-docker-serve-rocm: export VLLM_ATTENTION_BACKEND ?= ROCM_ATTN
+vllm-docker-serve-rocm: export VLLM_USE_TRITON_FLASH_ATTN ?= 0
+vllm-docker-serve-rocm: export FLASH_ATTENTION_TRITON_AMD_ENABLE ?= TRUE
+vllm-docker-serve-rocm: export VLLM_REASONING_PARSER ?= qwen3
+vllm-docker-serve-rocm: export VLLM_TOOL_CALL_PARSER ?= qwen3_coder
+vllm-docker-serve-rocm: export VLLM_ARGS = \
+	--tensor-parallel-size 1 \
+	--reasoning-parser $(VLLM_REASONING_PARSER) \
+	--max-model-len $(VLLM_MAX_MODEL_LEN) \
+	--max-num-batched-tokens $(VLLM_MAX_NUM_BATCHED_TOKENS) \
+	--max-num-seqs $(VLLM_MAX_NUM_SEQS) \
+	--cpu-offload-gb $(VLLM_CPU_OFFLOAD_GB) \
+	--kv-cache-dtype $(VLLM_KV_CACHE_DTYPE) \
+	--enable-auto-tool-choice \
+	--language-model-only \
+	$(if $(VLLM_TOOL_CALL_PARSER),--tool-call-parser $(VLLM_TOOL_CALL_PARSER)) \
+	$(if $(VLLM_ATTENTION_BACKEND),--attention-backend $(VLLM_ATTENTION_BACKEND)) \
+	$(if $(VLLM_LOAD_FORMAT),--load-format $(VLLM_LOAD_FORMAT)) \
+	$(if $(VLLM_TOKENIZER),--tokenizer $(VLLM_TOKENIZER)) \
+	$(if $(VLLM_QUANTIZATION),--quantization $(VLLM_QUANTIZATION)) \
+
 vllm-docker-serve-rocm: ## Run vLLM ROCm Docker OpenAI server (MODEL=...)
 	@if [ -z "$(MODEL)" ]; then \
 		echo "MODEL is required. Example:"; \
@@ -380,20 +416,34 @@ vllm-docker-serve-rocm: ## Run vLLM ROCm Docker OpenAI server (MODEL=...)
 		--security-opt seccomp=unconfined \
 		--device /dev/kfd \
 		--device /dev/dri \
+		-v "$(CURDIR):/workspace" \
+		-w /workspace \
 		-v "$(or $(VLLM_DOCKER_HF_CACHE),$(HOME)/.cache/huggingface):/home/vllm/.cache/huggingface" \
 		--env "HF_TOKEN=$(HF_TOKEN)" \
+		--env "PYTORCH_ALLOC_CONF=expandable_segments:True" \
+		--env "PYTORCH_TUNABLEOP_ENABLED=0" \
+		--env "HSA_NO_SCRATCH_RECLAIM=1" \
+		--env "AMDGCN_USE_BUFFER_OPS=0" \
+		--env "HSA_OVERRIDE_GFX_VERSION=11.5.0" \
+		--env "VLLM_ROCM_USE_AITER=$(VLLM_ROCM_USE_AITER)" \
+		--env "VLLM_ROCM_USE_AITER_MOE=$(VLLM_ROCM_USE_AITER_MOE)" \
+		--env "VLLM_ROCM_QUICK_REDUCE_QUANTIZATION=$(VLLM_ROCM_QUICK_REDUCE_QUANTIZATION)" \
+		--env "VLLM_USE_TRITON_FLASH_ATTN=$(VLLM_USE_TRITON_FLASH_ATTN)" \
+		--env "FLASH_ATTENTION_TRITON_AMD_ENABLE=$(FLASH_ATTENTION_TRITON_AMD_ENABLE)" \
 		-p "$(VLLM_PORT):8000" \
-		--ipc=host \
-		$(VLLM_DOCKER_ARGS) \
+		--ipc=host $(VLLM_DOCKER_ARGS) \
 		$(VLLM_DOCKER_IMAGE) \
-		"$(MODEL)" --gpu-memory-utilization 0.90 $(VLLM_ARGS)
+		"$(MODEL)" \
+		--gpu-memory-utilization $(VLLM_GPU_MEMORY_UTILIZATION) \
+		--no-enable-prefix-caching \
+		$(if $(VLLM_GENERATION_CONFIG),--override-generation-config '$(VLLM_GENERATION_CONFIG)') \
+		$(VLLM_ARGS)
 
 vllm-serve-openai-gpt-oss-20b: ## Run vLLM for openai/gpt-oss-20b
 	@export HSA_NO_SCRATCH_RECLAIM=1
 	@export AMDGCN_USE_BUFFER_OPS=0
 	@export VLLM_ROCM_USE_AITER=1
 	@export VLLM_ROCM_QUICK_REDUCE_QUANTIZATION=INT4
-	@export HSA_NO_SCRATCH_RECLAIM=1
 	@export PYTORCH_TUNABLEOP_ENABLED=0
 	@$(MAKE) vllm-serve \
 		MODEL="openai/gpt-oss-20b" \
