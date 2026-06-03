@@ -34,7 +34,7 @@ LLAMA_SERVE_VARS := \
 	LLAMA_ARG_CACHE_PROMPT \
 	LLAMA_ARG_CACHE_RAM \
 	LLAMA_ARG_REASONING \
-	LLAMA_ARG_WEBUI \
+	LLAMA_ARG_UI \
 	LLAMA_ARG_MMAP \
 	LLAMA_ARG_CACHE_TYPE_K \
 	LLAMA_ARG_CACHE_TYPE_V \
@@ -189,7 +189,7 @@ llama-serve: export LLAMA_ARG_REASONING ?= auto
 llama-serve: export LLAMA_ARG_THINK_BUDGET ?= -1
 llama-serve: LLAMA_CHAT_TEMPLATE_KWARGS ?=
 # web UI; enabled by default
-llama-serve: export LLAMA_ARG_WEBUI ?= false
+llama-serve: export LLAMA_ARG_UI ?= false
 # whether to memory-map model; enabled by default
 llama-serve: export LLAMA_ARG_MMAP ?= on
 # on|off|auto; default auto
@@ -228,7 +228,7 @@ llama-serve-gpt-oss-20b: ## Run llama.cpp for openai/gpt-oss-20b
 llama-serve-qwen3.6: export MODEL ?= models/unsloth/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
 llama-serve-qwen3.6: export LLAMA_ARG_ALIAS ?= qwen3.6
 llama-serve-qwen3.6: export LLAMA_ARG_PORT ?= 9010
-llama-serve-qwen3.6: export LLAMA_ARG_WEBUI ?= true
+llama-serve-qwen3.6: export LLAMA_ARG_UI ?= true
 llama-serve-qwen3.6: export LLAMA_ARG_TEMP ?= 1
 llama-serve-qwen3.6: export LLAMA_ARG_TOP_P ?= 0.95
 llama-serve-qwen3.6: export LLAMA_ARG_PRESENCE_PENALTY ?= 1.5
@@ -236,6 +236,8 @@ llama-serve-qwen3.6: export LLAMA_ARG_FLASH_ATTN ?= on
 llama-serve-qwen3.6: export LLAMA_ARG_N_PREDICT ?= 32768
 llama-serve-qwen3.6: export LLAMA_ARG_NO_MMAP ?= on
 llama-serve-qwen3.6: export LLAMA_ARG_MLOCK ?= on
+# llama-serve-qwen3.6: export LLAMA_ARG_SPEC_TYPE ?= draft-mtp
+# llama-serve-qwen3.6: export LLAMA_ARG_SPEC_DRAFT_N_MAX ?= 2
 llama-serve-qwen3.6: ## Run llama.cpp Qwen3.6 for general usage with default model Qwen3.6-35B-A3B-UD-IQ4_NL_XL
 	@$(MAKE) llama-serve \
 		LLAMA_ARG_TOP_K=20 \
@@ -245,7 +247,7 @@ llama-serve-qwen3.6: ## Run llama.cpp Qwen3.6 for general usage with default mod
 
 llama-serve-qwen3.6-coder: export LLAMA_ARG_ALIAS ?= qwen3.6-coder
 llama-serve-qwen3.6-coder: export LLAMA_ARG_PORT ?= 9020
-llama-serve-qwen3.6-coder: export LLAMA_ARG_WEBUI ?= false
+llama-serve-qwen3.6-coder: export LLAMA_ARG_UI ?= true
 llama-serve-qwen3.6-coder: export LLAMA_ARG_TEMP ?= 0.6
 llama-serve-qwen3.6-coder: export LLAMA_ARG_FLASH_ATTN ?= on
 # llama-serve-qwen3.6-coding: export LLAMA_ARG_CACHE_TYPE_K ?= q8_0
@@ -254,6 +256,12 @@ llama-serve-qwen3.6-coder: export LLAMA_ARG_THINK_BUDGET ?= 16384
 llama-serve-qwen3.6-coder: ## Run llama.cpp Qwen3.6 for coding tasks
 	@$(MAKE) llama-serve-qwen3.6 \
 		LLAMA_ARG_PRESENCE_PENALTY=0.0
+
+llama-serve-qwen3.6-coder-mtp: export LLAMA_ARG_SPEC_TYPE ?= draft-mtp
+llama-serve-qwen3.6-coder-mtp: export LLAMA_ARG_SPEC_DRAFT_N_MAX ?= 2
+llama-serve-qwen3.6-coder-mtp: ## Run llama.cpp Qwen3.6 for coding tasks with MTP
+	@$(MAKE) llama-serve-qwen3.6-coder \
+		LLAMA_ARG_UI=true
 
 llama-serve-qwen3.6-instruct: ## Run llama.cpp Qwen3.6 Instruct (non-thinking)
 	@$(MAKE) llama-serve-qwen3.6 \
@@ -267,7 +275,7 @@ llama-serve-qwen3.6-mini: ## Run llama.cpp for Qwen3.6-35B-A3B-UD-IQ2
 	  MODEL=models/unsloth/Qwen3.6-35B-A3B-UD-IQ2_M.gguf \
 	  LLAMA_ARG_ALIAS=qwen3.6-mini \
 		LLAMA_ARG_PORT=9000 \
-		LLAMA_ARG_WEBUI=true \
+		LLAMA_ARG_UI=true \
 		LLAMA_ARG_TEMP=1 \
 		LLAMA_ARG_FLASH_ATTN=on
 
