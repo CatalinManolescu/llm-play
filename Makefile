@@ -184,6 +184,8 @@ llama-serve: export LLAMA_ARG_JINJA ?= true
 llama-serve: export LLAMA_ARG_CACHE_PROMPT ?= true
 # cache RAM in MiB; -1 = no limit, 0 = disable
 llama-serve: export LLAMA_ARG_CACHE_RAM ?= 8192
+# whether to enable KV cache offloading (default: enabled)
+llama-serve: export LLAMA_ARG_KV_OFFLOAD ?= off
 # on|off|auto
 llama-serve: export LLAMA_ARG_REASONING ?= auto
 llama-serve: export LLAMA_ARG_THINK_BUDGET ?= -1
