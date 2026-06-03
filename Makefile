@@ -13,6 +13,11 @@ VLLM_HOST ?= 0.0.0.0
 VLLM_PORT ?= 9100
 VLLM_DOWNLOAD_DIR ?= models/hf
 VLLM_ARGS ?=
+VLLM_DOCKER_HF_CACHE ?= $(HOME)/.cache/huggingface
+VLLM_DOCKER_ARGS ?=
+HF_ACCOUNT ?=
+HF_TOKEN ?=
+HF_API_URL ?= https://huggingface.co/api/models
 
 LLAMA_SERVE_VARS := \
 	LLAMA_ARG_ALIAS \
@@ -101,6 +106,72 @@ watch-gpu: ## Watch GPU and VRAM usage
 		exit 1; \
 	fi
 
+hf-ls: export HF_ACCOUNT ?= unsloth
+hf-ls: ## List Hugging Face models for an account (HF_ACCOUNT=...)
+	@if [ -z "$(HF_ACCOUNT)" ]; then \
+		echo "HF_ACCOUNT is required. Example:"; \
+		echo "  make hf-ls HF_ACCOUNT=unsloth"; \
+		exit 1; \
+	fi
+	@if ! command -v jq >/dev/null 2>&1; then \
+		echo "jq is required. Install jq and try again." >&2; \
+		exit 1; \
+	fi
+	@models="$$(curl -fsSL -H "User-Agent: llm-makefile-hf-ls" $(if $(HF_TOKEN),-H "Authorization: Bearer $(HF_TOKEN)") "$(HF_API_URL)?author=$(HF_ACCOUNT)&full=true&limit=1000" | jq -r '.[] | (.modelId // .id // empty) | split("/")[-1]' | sort)"; \
+	if [ -n "$$models" ]; then \
+		printf '%s\n' "$$models"; \
+	else \
+		echo "No models found for Hugging Face account: $(HF_ACCOUNT)" >&2; \
+		exit 1; \
+	fi
+
+hf-gguf-ls: export HF_ACCOUNT ?= unsloth
+hf-gguf-ls: ## List GGUF files for a Hugging Face model (HF_ACCOUNT=... MODEL=...)
+	@if [ -z "$(HF_ACCOUNT)" ]; then \
+		echo "HF_ACCOUNT is required. Example:"; \
+		echo "  make hf-gguf-ls HF_ACCOUNT=unsloth MODEL=Qwen3.6-35B-A3B-GGUF"; \
+		exit 1; \
+	fi
+	@if [ -z "$(MODEL)" ]; then \
+		echo "MODEL is required. Example:"; \
+		echo "  make hf-gguf-ls HF_ACCOUNT=unsloth MODEL=Qwen3.6-35B-A3B-GGUF"; \
+		exit 1; \
+	fi
+	@if ! command -v jq >/dev/null 2>&1; then \
+		echo "jq is required. Install jq and try again." >&2; \
+		exit 1; \
+	fi
+	@files="$$(curl -fsSL -H "User-Agent: llm-makefile-hf-gguf-ls" $(if $(HF_TOKEN),-H "Authorization: Bearer $(HF_TOKEN)") "$(HF_API_URL)/$(HF_ACCOUNT)/$(MODEL)" | jq -r '.siblings[]? | (.rfilename // .filename // empty) | select(test("\\.gguf$$"; "i"))' | sort)"; \
+	if [ -n "$$files" ]; then \
+		printf '%s\n' "$$files"; \
+	else \
+		echo "No GGUF files found for Hugging Face model: $(HF_ACCOUNT)/$(MODEL)" >&2; \
+		exit 1; \
+	fi
+
+hf-gguf-download: export HF_ACCOUNT ?= unsloth
+hf-gguf-download: ## Download a GGUF file from Hugging Face (HF_ACCOUNT=... MODEL=... GGUF_FILE=...)
+	@if [ -z "$(MODEL)" ]; then \
+		echo "MODEL is required. Example:"; \
+		echo "  make hf-gguf-download HF_ACCOUNT=unsloth MODEL=Qwen3.6-35B-A3B-GGUF GGUF_FILE=Qwen3.6-35B-A3B-Q8_0.gguf"; \
+		exit 1; \
+	fi
+	@if [ -z "$(GGUF_FILE)" ]; then \
+		echo "GGUF_FILE is required. Example:"; \
+		echo "  make hf-gguf-download HF_ACCOUNT=unsloth MODEL=Qwen3.6-35B-A3B-GGUF GGUF_FILE=Qwen3.6-35B-A3B-Q8_0.gguf"; \
+		exit 1; \
+	fi
+
+	download_path="$(DOWNLOAD_PATH)"; \
+	if [ -z "$$download_path" ]; then \
+		download_path="models/$(HF_ACCOUNT)/$(MODEL)"; \
+	fi; \
+	dest="$$download_path/$(GGUF_FILE)"; \
+	mkdir -p "$$(dirname "$$dest")"; \
+	curl -fL -H "User-Agent: llm-makefile-hf-gguf-download" $(if $(HF_TOKEN),-H "Authorization: Bearer $(HF_TOKEN)") \
+		-o "$$dest" "https://huggingface.co/$(HF_ACCOUNT)/$(MODEL)/resolve/main/$(GGUF_FILE)?download=true"; \
+	printf 'Downloaded %s\n' "$$dest"
+
 unsloth-studio-install: ## Install Unsloth Studio
 	@curl -fsSL https://unsloth.ai/install.sh | sh
 
@@ -149,7 +220,6 @@ llama-build-amd-rocm: ## Build llama.cpp with AMD ROCm (HIP)
 		-DGGML_HIP=ON
 	@cmake --build "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)" -j $$(nproc)
 	@cmake --install "$(LLAMA_BUILD_DIR_BASE)-rocm" --config "$(LLAMA_BUILD_TYPE)"
-
 
 llama-serve-vars: ## Print llama-serve variable names
 	@printf '%s\n' $(LLAMA_SERVE_VARS)
@@ -227,7 +297,7 @@ llama-serve-gpt-oss-20b: ## Run llama.cpp for openai/gpt-oss-20b
 	  LLAMA_ARG_ALIAS=gpt-oss \
 		LLAMA_ARG_TEMP=1
 
-llama-serve-qwen3.6: export MODEL ?= models/unsloth/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
+llama-serve-qwen3.6: export MODEL ?= models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
 llama-serve-qwen3.6: export LLAMA_ARG_ALIAS ?= qwen3.6
 llama-serve-qwen3.6: export LLAMA_ARG_PORT ?= 9010
 llama-serve-qwen3.6: export LLAMA_ARG_UI ?= true
@@ -273,8 +343,8 @@ llama-serve-qwen3.6-instruct: ## Run llama.cpp Qwen3.6 Instruct (non-thinking)
 		LLAMA_CHAT_TEMPLATE_KWARGS='{"enable_thinking":false}'
 
 llama-serve-qwen3.6-mini: ## Run llama.cpp for Qwen3.6-35B-A3B-UD-IQ2
-	@$(MAKE) llama-serve-qwen3.6-coder \
-	  MODEL=models/unsloth/Qwen3.6-35B-A3B-UD-IQ2_M.gguf \
+	@$(MAKE) llama-serve-qwen3.6-coder-mtp \
+	  MODEL=models/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/Qwen3.6-35B-A3B-UD-IQ2_M.gguf \
 	  LLAMA_ARG_ALIAS=qwen3.6-mini \
 		LLAMA_ARG_PORT=9000 \
 		LLAMA_ARG_UI=true \
@@ -292,6 +362,31 @@ vllm-serve: ## Run vLLM with a Hugging Face model (MODEL=...)
 		--download-dir "$(VLLM_DOWNLOAD_DIR)" --enable-auto-tool-choice \
 		--gpu-memory-utilization 0.95 --enforce-eager \
 		$(VLLM_ARGS)
+
+vllm-docker-serve-rocm: export VLLM_DOCKER_IMAGE ?= vllm/vllm-openai-rocm:latest
+vllm-docker-serve-rocm: export VLLM_DOCKER_NAME ?= vllm-openai-rocm
+vllm-docker-serve-rocm: export VLLM_ARGS ?= --cpu-offload-gb 8 --enable-prefix-caching --tensor-parallel-size 1 --kv-cache-dtype fp8
+vllm-docker-serve-rocm: ## Run vLLM ROCm Docker OpenAI server (MODEL=...)
+	@if [ -z "$(MODEL)" ]; then \
+		echo "MODEL is required. Example:"; \
+		echo "  make vllm-docker-serve-rocm MODEL=Qwen/Qwen3-0.6B"; \
+		exit 1; \
+	fi
+	@mkdir -p "$(or $(VLLM_DOCKER_HF_CACHE),$(HOME)/.cache/huggingface)"
+	docker run --rm \
+		--name "$(VLLM_DOCKER_NAME)" \
+		--group-add=video \
+		--cap-add=SYS_PTRACE \
+		--security-opt seccomp=unconfined \
+		--device /dev/kfd \
+		--device /dev/dri \
+		-v "$(or $(VLLM_DOCKER_HF_CACHE),$(HOME)/.cache/huggingface):/home/vllm/.cache/huggingface" \
+		--env "HF_TOKEN=$(HF_TOKEN)" \
+		-p "$(VLLM_PORT):8000" \
+		--ipc=host \
+		$(VLLM_DOCKER_ARGS) \
+		$(VLLM_DOCKER_IMAGE) \
+		"$(MODEL)" --gpu-memory-utilization 0.90 $(VLLM_ARGS)
 
 vllm-serve-openai-gpt-oss-20b: ## Run vLLM for openai/gpt-oss-20b
 	@export HSA_NO_SCRATCH_RECLAIM=1
