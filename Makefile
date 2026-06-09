@@ -15,7 +15,7 @@ VLLM_DOWNLOAD_DIR ?= models/hf
 VLLM_ARGS ?=
 VLLM_DOCKER_HF_CACHE ?= $(HOME)/.cache/huggingface
 VLLM_DOCKER_ARGS ?=
-HF_ACCOUNT ?=
+HF_ACCOUNT ?= unsloth
 HF_TOKEN ?=
 HF_API_URL ?= https://huggingface.co/api/models
 
@@ -127,6 +127,7 @@ hf-ls: ## List Hugging Face models for an account (HF_ACCOUNT=...)
 
 hf-gguf-ls: export HF_ACCOUNT ?= unsloth
 hf-gguf-ls: ## List GGUF files for a Hugging Face model (HF_ACCOUNT=... MODEL=...)
+	echo "$(HF_ACCOUNT)"
 	@if [ -z "$(HF_ACCOUNT)" ]; then \
 		echo "HF_ACCOUNT is required. Example:"; \
 		echo "  make hf-gguf-ls HF_ACCOUNT=unsloth MODEL=Qwen3.6-35B-A3B-GGUF"; \
@@ -288,6 +289,7 @@ llama-serve-autocomplete: ## Run llama.cpp for code completion
 	@$(MAKE) llama-serve \
 	  MODEL=models/jetbrains/mellum-4b-dpo-all-q8_0.gguf \
 	  LLAMA_ARG_ALIAS=mellum \
+		LLAMA_ARG_CACHE_RAM=1024 \
 		LLAMA_ARG_TEMP=0,6 \
 		LLAMA_ARG_FLASH_ATTN=on
 
@@ -322,6 +324,7 @@ llama-serve-qwen3.6-coder: export LLAMA_ARG_PORT ?= 9020
 llama-serve-qwen3.6-coder: export LLAMA_ARG_UI ?= true
 llama-serve-qwen3.6-coder: export LLAMA_ARG_TEMP ?= 0.6
 llama-serve-qwen3.6-coder: export LLAMA_ARG_FLASH_ATTN ?= on
+llama-serve-qwen3.6-coder: export LLAMA_ARG_KV_OFFLOAD ?= on
 # llama-serve-qwen3.6-coding: export LLAMA_ARG_CACHE_TYPE_K ?= q8_0
 # llama-serve-qwen3.6-coding: export LLAMA_ARG_CACHE_TYPE_V ?= q8_0
 llama-serve-qwen3.6-coder: export LLAMA_ARG_THINK_BUDGET ?= 16384
@@ -344,9 +347,10 @@ llama-serve-qwen3.6-instruct: ## Run llama.cpp Qwen3.6 Instruct (non-thinking)
 
 llama-serve-qwen3.6-mini: ## Run llama.cpp for Qwen3.6-35B-A3B-UD-IQ2
 	@$(MAKE) llama-serve-qwen3.6-coder-mtp \
-	  MODEL=models/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/Qwen3.6-35B-A3B-UD-IQ2_M.gguf \
+	  MODEL=models/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/Qwen3.6-35B-A3B-UD-IQ2_XXS.gguf \
 	  LLAMA_ARG_ALIAS=qwen3.6-mini \
 		LLAMA_ARG_PORT=9000 \
+		LLAMA_ARG_CACHE_RAM=4096 \
 		LLAMA_ARG_UI=true \
 		LLAMA_ARG_TEMP=1 \
 		LLAMA_ARG_FLASH_ATTN=on
