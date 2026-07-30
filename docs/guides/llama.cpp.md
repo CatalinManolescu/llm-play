@@ -29,11 +29,3 @@ vi convert_hf_to_gguf_update.py
 huggingface-cli login
 python3 convert_hf_to_gguf_update.py
 ```
-
-Download model
-
-Transform openai/gpt-oss-20b
-
-```
-
-```

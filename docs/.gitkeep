@@ -1,0 +1,78 @@
+# docs structure ideas
+
+Prompt = "What should the model do for this task?"
+Agent spec (AGENT.md) = "How should this agent behave overall?"
+Reference = "What are the rules, standards, and contracts?"
+Guide = "How do I perform a task?"
+Concept = "What is this topic and why does it matter?"
+
+docs/
+├── concepts/              # foundational knowledge
+│   ├── ai-governance/
+│   │   ├── data-governance-llms.md
+│   │   ├── rag-governance.md
+│   │   ├── agentic-ai-governance.md
+│   │   └── governance-architecture.md
+│   │
+│   ├── llm-fundamentals/
+│   ├── rag/
+│   ├── agentic-ai/
+│   ├── security/
+│   └── devsecops/
+│
+├── guides/                # implementation/how-to
+│   ├── implement-rag-access-controls.md
+│   ├── secure-agent-tools.md
+│   ├── auditing-ai-systems.md
+│   ├── build-a-rag-system.md
+│   ├── implement-rbac-for-agents.md
+│   ├── configure-vector-search.md
+│   └── perform-model-evaluation.md
+│
+├── reference/
+│   ├── agents/
+│   │   ├── AGENT.md
+│   │   ├── coding-agent.md
+│   │   └── security-agent.md
+│   │
+│   ├── governance/
+│   │   ├── governance-checklist.md
+│   │   ├── ai-risk-framework.md
+│   │   └── data-classification.md
+│   │
+│   ├── standards/
+│   │   └── security-controls-matrix.md
+│   │
+│   └── schemas/
+│
+├── research/
+│
+├── prompts/
+│   ├── security/
+│   │   ├── security-code-review.md
+│   │   └── threat-modeling.md
+│   │
+│   ├── engineering/
+│   │   ├── code-review.md
+│   │   ├── architecture-design.md
+│   │   ├── build-rag-pipeline.md
+│   │   ├── create-api-specification.md
+│   │   └── generate-ci-cd-pipeline.md
+│   │
+│   ├── governance/
+│   └── analysis/
+│       ├── architecture-analysis.md
+│       ├── document-analysis.md
+│       ├── requirements-analysis.md
+│       ├── gap-analysis.md
+│       ├── root-cause-analysis.md
+│       ├── risk-analysis.md
+│       ├── incident-analysis.md
+│       ├── meeting-transcript-analysis.md
+│       ├── architecture-tradeoff-analysis.md
+│       ├── vendor-comparison.md
+│       └── model-evaluation-analysis.md
+│
+└── assets/
+    ├── diagrams/
+    └── images/
