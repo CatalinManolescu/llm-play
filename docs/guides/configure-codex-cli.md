@@ -18,7 +18,7 @@ Guide to configuring and operating the Codex CLI for model-assisted development 
 ## Repository & Documentation
 
 - Repository: https://github.com/openai/codex
-- Config reference: https://github.com/openai/codex/blob/main/codex-rs/config.md
+- Config reference: https://github.com/openai/codex/blob/main/docs/config.md
 
 ## Configuration Overview
 
