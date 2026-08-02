@@ -43,6 +43,32 @@ export LD_LIBRARY_PATH="$LLAMA_CPP_HOME/lib:$LD_LIBRARY_PATH"
 llama-cli --list-devices
 ```
 
+## Build with Make
+
+The repository Makefile provides backend-specific builds after the source tree is available:
+
+```shell
+make llama-clone
+make llama-build-amd-vulkan
+```
+
+Use the target that matches the installed backend:
+
+```shell
+make llama-build-nvidia
+make llama-build-amd-vulkan
+make llama-build-amd-rocm
+```
+
+Override the source directory, build type, or install location when needed:
+
+```shell
+make llama-build-amd-vulkan \
+  LLAMA_DIR=llama.cpp \
+  LLAMA_BUILD_TYPE=Release \
+  LLAMA_INSTALL_PREFIX="$PWD/llama_cpp_rl"
+```
+
 ## Further Reading
 
 - [Vulkan setup for Ubuntu](https://vulkan.lunarg.com/doc/view/latest/linux/getting_started_ubuntu.html)

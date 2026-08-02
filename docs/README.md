@@ -17,6 +17,7 @@ Step-by-step setup and operational procedures.
 - [Ollama and Open WebUI](guides/install-ollama.md)
 - [vLLM](guides/install-vllm.md)
 - [llama.cpp](guides/build-llama-cpp.md)
+- [Model downloads](guides/download-models.md)
 - [Model conversion](guides/convert-models-to-gguf.md)
 - [Benchmarking](guides/benchmark-llama-cpp.md)
 
