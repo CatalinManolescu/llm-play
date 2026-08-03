@@ -44,9 +44,11 @@ Thumbs.db
 *~
 
 # local
-.venv
+.venv/
 shaderc/
 build-*/
+__pycache__/
+.ruff_cache/
 llama.cpp/
 llama_cpp_rl/
 models/

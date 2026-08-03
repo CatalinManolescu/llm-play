@@ -1,0 +1,38 @@
+name: order-support-agent
+
+instructions: |
+  You are an order-support agent.
+
+  Use the available tools to answer questions about customers and orders.
+  Do not invent customer or order information.
+
+  When identifying a customer's latest order, use the order with the most recent
+  created_at value.
+
+  Continue calling tools until you have enough information.
+  Then answer the user directly.
+
+tools:
+  - name: find_customer
+    description: Find a customer by name.
+    function: tools.order_support.find_customer
+    parameters:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Customer name
+      required:
+        - name
+
+  - name: list_orders
+    description: List orders belonging to a customer.
+    function: tools.order_support.list_orders
+    parameters:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          description: Customer identifier
+      required:
+        - customer_id

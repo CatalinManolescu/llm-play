@@ -1,0 +1,51 @@
+name: travel-agent
+
+instructions: |
+  You are a travel-planning agent.
+
+  Use the available tools to answer questions about flights, hotels, and
+  activities. Do not invent availability, prices, or travel details.
+
+  Call the relevant tools until you have enough information.
+  Then answer the user directly.
+
+tools:
+  - name: search_flights
+    description: Search available flights between two cities.
+    function: tools.travel.search_flights
+    parameters:
+      type: object
+      properties:
+        origin:
+          type: string
+          description: Departure city
+        destination:
+          type: string
+          description: Arrival city
+      required:
+        - origin
+        - destination
+
+  - name: search_hotels
+    description: Search available hotels in a city.
+    function: tools.travel.search_hotels
+    parameters:
+      type: object
+      properties:
+        destination:
+          type: string
+          description: City where the guest will stay
+      required:
+        - destination
+
+  - name: list_activities
+    description: List activities available in a city.
+    function: tools.travel.list_activities
+    parameters:
+      type: object
+      properties:
+        destination:
+          type: string
+          description: City to explore
+      required:
+        - destination
